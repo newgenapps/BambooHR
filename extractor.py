@@ -25,8 +25,8 @@ userKeys = [ 'address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'dat
     'customNon-DomStatus', 'customPakistanMobilePhone', 'customRwandaMobilePhone', 'customStateofOrigin',
     'customTaxIDNumber', 'customUKWorkPermit' ]
 userTables = [
-    #'jobInfo', 'employmentStatus', 'compensation', 'emergencyContacts', 'customBankDetails', 'customRSADetails'
-    'jobInfo'
+    #'emergencyContacts', 'customBankDetails', 'customRSADetails'
+    'jobInfo', 'employmentStatus', 'compensation'
 ]
 userIDs = []
 
@@ -99,6 +99,41 @@ def exec_jobInfo(tableName, displayName):
             csvOutput += processAttrValue(elem[key])
         jobInfoCSV.write(csvOutput + "\n")
     jobInfoCSV.close()
+
+
+def exec_employmentStatus(tableName, displayName):
+    statusKeys = ['employmentStatus', 'employeeId', 'date']
+
+    fileName = args.dest + '/' + epochNow + '_employee_status.csv'
+    headerPresent = checkHeaderForAttribute(fileName, 'displayName')
+
+    statusCSV = openFileHandler(fileName)
+    if headerPresent == False:
+        statusCSV.write('displayName,' + str(','.join(map(str, statusKeys)) + "\n"))
+
+    employmentGetInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
+    for elem in employmentGetInfo:
+        csvOutput = processAttrValue(displayName)
+        for key in statusKeys:
+            csvOutput += processAttrValue(elem[key])
+        statusCSV.write(csvOutput + "\n")
+    statusCSV.close()
+
+
+def exec_compensation(tableName, displayName):
+    compKeys = [ 'type', 'payPeriod', 'employeeId', 'startDate', 'rate' ]
+    headerKeys = [ 'type', 'payPeriod', 'employeeId', 'startDate']
+
+    print('displayName,' + str(','.join(map(str, headerKeys)) + ',value,currency' + "\n"))
+
+    compGetInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
+    for elem in compGetInfo:
+        for key in compKeys:
+            if key == "rate":
+                for tag in elem[key]:
+                    print(elem[key][tag])
+            else:
+                print(elem[key])
 
 
 #-----
