@@ -13,7 +13,7 @@ args = parser.parse_args()
 
 epochNow = datetime.datetime.today().strftime('%Y%m%d_%s')
 APIPrefix = 'https://api.bamboohr.com/api/gateway.php/ggh/v1/employees'
-userKeys = [ 'address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'dateOfBirth', 'department', 'division',
+userKeys = ['address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'dateOfBirth', 'department', 'division',
     'employeeNumber', 'employmentHistoryStatus', 'firstName', 'fullName1', 'fullName2', 'fullName3', 'fullName4',
     'fullName5', 'displayName', 'gender', 'hireDate', 'homeEmail', 'homePhone', 'id', 'jobTitle', 'lastChanged',
     'lastName', 'location', 'maritalStatus', 'middleName', 'mobilePhone', 'payChangeReason', 'payGroupId', 'payRate',
@@ -23,10 +23,10 @@ userKeys = [ 'address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'dat
     'customBenefitDue', 'customCompany', 'customDateofConfirmation', 'customGrade1', 'customLagosGrade', 'customLevel',
     'customNationalInsuranceNumber', 'customNationality', 'customNHFNumber', 'customNIC', 'customNigeriaMobilePhone',
     'customNon-DomStatus', 'customPakistanMobilePhone', 'customRwandaMobilePhone', 'customStateofOrigin',
-    'customTaxIDNumber', 'customUKWorkPermit' ]
+    'customTaxIDNumber', 'customUKWorkPermit']
 userTables = [
-    #'emergencyContacts', 'customBankDetails', 'customRSADetails'
-    'jobInfo', 'employmentStatus', 'compensation'
+    #, 'compensation', 'customBankDetails', 'customRSADetails'
+    'jobInfo', 'employmentStatus', 'emergencyContacts', 'compensation'
 ]
 userIDs = []
 
@@ -82,62 +82,85 @@ def checkHeaderForAttribute(fileName, keyword):
         exit(1)
 
 
-def exec_jobInfo(tableName, displayName):
-    jobInfoKeys = [ 'jobTitle', 'reportsTo', 'location', 'division', 'department', 'date' ]
+def writeSingleLevelCSV(tableName, keyList):
+    outputFile = args.dest + '/' + epochNow + '_' + tableName + '.csv'
+    headerPresent = checkHeaderForAttribute(outputFile, 'displayName')
+    jobInfoCSV = openFileHandler(outputFile)
 
-    fileName = args.dest + '/' + epochNow + '_' + tableName + '.csv'
-    headerPresent = checkHeaderForAttribute(fileName, 'displayName')
-
-    jobInfoCSV = openFileHandler(fileName)
     if headerPresent == False:
-        jobInfoCSV.write('displayName,' + str(','.join(map(str, jobInfoKeys)) + "\n"))
+        jobInfoCSV.write('displayName,' + str(','.join(map(str, keyList)) + "\n"))
 
     tableInfoGet = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
     for elem in tableInfoGet:
-        csvOutput = processAttrValue(displayName)
-        for key in jobInfoKeys:
+        csvOutput = processAttrValue(employee)
+        for key in keyList:
             csvOutput += processAttrValue(elem[key])
         jobInfoCSV.write(csvOutput.rstrip(',') + "\n")
     jobInfoCSV.close()
 
 
-def exec_employmentStatus(tableName, displayName):
+'''
+def writeTwoLevelCSV(tableName, keyList, subKey, subKeyList):
+    outputFile = args.dest + '/' + epochNow + '_' + tableName + '.csv'
+    headerPresent = checkHeaderForAttribute(outputFile, 'displayName')
+    jobInfoCSV = openFileHandler(outputFile)
+
+    if headerPresent == False:
+        jobInfoCSV.write('displayName,' + str(','.join(map(str, keyList)) + "\n"))
+
+    tableInfoGet = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
+    for elem in tableInfoGet:
+        csvOutput = processAttrValue(employee)
+        for key in keyList:
+            print(type(elem[key]))
+            if key == subKey:
+                for tag in elem[key]:
+                    csvOutput += processAttrValue(elem[key][tag])
+            else:
+                csvOutput += processAttrValue(elem[key])
+        print(csvOutput)
+        #jobInfoCSV.write(csvOutput.rstrip(',') + "\n")
+    #jobInfoCSV.close()
+'''
+
+
+def exec_jobInfo(tableName):
+    jobInfoKeys = ['jobTitle', 'reportsTo', 'location', 'division', 'department', 'date']
+    writeSingleLevelCSV(tableName, jobInfoKeys)
+
+
+def exec_employmentStatus(tableName):
     statusKeys = ['employmentStatus', 'employeeId', 'date']
+    writeSingleLevelCSV(tableName, statusKeys)
+
+
+def exec_emergencyContacts(tableName):
+    contactKeys = ['employeeId', 'name', 'relationship', 'homePhone', 'addressLine1', 'addressLine2', 'mobilePhone',
+                   'email', 'zipcode', 'city', 'state', 'country', 'workPhone', 'workPhoneExtension']
+    writeSingleLevelCSV(tableName, contactKeys)
+
+
+def exec_compensation(tableName):
+    allKeys = compKeys = ['type', 'payPeriod', 'employeeId', 'startDate']
+    subKey = 'rate'
+    subKeyheaders = ['currency', 'value']
+    allKeys.append(subKey)
+    #writeTwoLevelCSV(tableName, compKeys, subKey, subKeyheaders)
 
     fileName = args.dest + '/' + epochNow + '_' + tableName + '.csv'
     headerPresent = checkHeaderForAttribute(fileName, 'displayName')
 
     statusCSV = openFileHandler(fileName)
     if headerPresent == False:
-        statusCSV.write('displayName,' + str(','.join(map(str, statusKeys)) + "\n"))
-
-    employmentGetInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
-    for elem in employmentGetInfo:
-        csvOutput = processAttrValue(displayName)
-        for key in statusKeys:
-            csvOutput += processAttrValue(elem[key])
-        statusCSV.write(csvOutput.rstrip(',') + "\n")
-    statusCSV.close()
-
-
-def exec_compensation(tableName, displayName):
-    compKeys = ['type', 'payPeriod', 'employeeId', 'startDate', 'rate']
-    headerKeys = ['type', 'payPeriod', 'employeeId', 'startDate']
-
-    fileName = args.dest + '/' + epochNow + '_' + tableName + '.csv'
-    headerPresent = checkHeaderForAttribute(fileName, 'displayName')
-
-    statusCSV = openFileHandler(fileName)
-    if headerPresent == False:
-        statusCSV.write('displayName,' + str(','.join(map(str, headerKeys)) + "\n"))
+        statusCSV.write('displayName,' + str(','.join(map(str, compKeys))) + ','
+            + str(','.join(map(str, subKeyheaders))) + "\n")
 
     compGetInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
-    # print(displayName)
     for elem in compGetInfo:
-        csvOutput = processAttrValue(displayName)
-        for key in compKeys:
-            if key == "rate":
-                for tag in elem[key]:
+        csvOutput = processAttrValue(employee)
+        for key in allKeys:
+            if key == subKey:
+                for tag in subKeyheaders:
                     csvOutput += processAttrValue(elem[key][tag])
             else:
                 csvOutput += processAttrValue(elem[key])
@@ -166,8 +189,7 @@ for id in ids:
             csvOutput += processAttrValue(userInfoGet[key])
         employeeCSV.write(csvOutput.rstrip(',') + "\n")
 
-        displayName = userInfoGet['displayName']
-
+        employee = userInfoGet['displayName']
         for table in userTables:
-            locals()[str('exec_' + table)](table, displayName)
+            locals()[str('exec_' + table)](table)
 employeeCSV.close()
