@@ -85,7 +85,7 @@ def checkHeaderForAttribute(fileName, keyword):
 def exec_jobInfo(tableName, displayName):
     jobInfoKeys = [ 'jobTitle', 'reportsTo', 'location', 'division', 'department', 'date' ]
 
-    fileName = args.dest + '/' + epochNow + '_employee_jobInfo.csv'
+    fileName = args.dest + '/' + epochNow + '_' + tableName + '.csv'
     headerPresent = checkHeaderForAttribute(fileName, 'displayName')
 
     jobInfoCSV = openFileHandler(fileName)
@@ -97,14 +97,14 @@ def exec_jobInfo(tableName, displayName):
         csvOutput = processAttrValue(displayName)
         for key in jobInfoKeys:
             csvOutput += processAttrValue(elem[key])
-        jobInfoCSV.write(csvOutput + "\n")
+        jobInfoCSV.write(csvOutput.rstrip(',') + "\n")
     jobInfoCSV.close()
 
 
 def exec_employmentStatus(tableName, displayName):
     statusKeys = ['employmentStatus', 'employeeId', 'date']
 
-    fileName = args.dest + '/' + epochNow + '_employee_status.csv'
+    fileName = args.dest + '/' + epochNow + '_' + tableName + '.csv'
     headerPresent = checkHeaderForAttribute(fileName, 'displayName')
 
     statusCSV = openFileHandler(fileName)
@@ -116,24 +116,33 @@ def exec_employmentStatus(tableName, displayName):
         csvOutput = processAttrValue(displayName)
         for key in statusKeys:
             csvOutput += processAttrValue(elem[key])
-        statusCSV.write(csvOutput + "\n")
+        statusCSV.write(csvOutput.rstrip(',') + "\n")
     statusCSV.close()
 
 
 def exec_compensation(tableName, displayName):
-    compKeys = [ 'type', 'payPeriod', 'employeeId', 'startDate', 'rate' ]
-    headerKeys = [ 'type', 'payPeriod', 'employeeId', 'startDate']
+    compKeys = ['type', 'payPeriod', 'employeeId', 'startDate', 'rate']
+    headerKeys = ['type', 'payPeriod', 'employeeId', 'startDate']
 
-    print('displayName,' + str(','.join(map(str, headerKeys)) + ',value,currency' + "\n"))
+    fileName = args.dest + '/' + epochNow + '_' + tableName + '.csv'
+    headerPresent = checkHeaderForAttribute(fileName, 'displayName')
+
+    statusCSV = openFileHandler(fileName)
+    if headerPresent == False:
+        statusCSV.write('displayName,' + str(','.join(map(str, headerKeys)) + "\n"))
 
     compGetInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
+    # print(displayName)
     for elem in compGetInfo:
+        csvOutput = processAttrValue(displayName)
         for key in compKeys:
             if key == "rate":
                 for tag in elem[key]:
-                    print(elem[key][tag])
+                    csvOutput += processAttrValue(elem[key][tag])
             else:
-                print(elem[key])
+                csvOutput += processAttrValue(elem[key])
+        statusCSV.write(csvOutput.rstrip(',') + "\n")
+    statusCSV.close()
 
 
 #-----
@@ -146,7 +155,7 @@ userIDGet = fetchFromAPI(APIPrefix + '/directory')
 for employee in userIDGet['employees']:
     userIDs.append(employee['id'])
 
-employeeCSV = openFileHandler(args.dest + '/' + epochNow + '_employee_info.csv')
+employeeCSV = openFileHandler(args.dest + '/' + epochNow + '_employees.csv')
 employeeCSV.write(','.join(map(str, userKeys)) + "\n")
 for id in ids:
     # Do not run for ID 671 - Viv Diwakar
@@ -155,7 +164,7 @@ for id in ids:
         userInfoGet = fetchFromAPI(APIPrefix + '/' + str(id) + '?fields=' + ','.join(map(str, userKeys)))
         for key in userKeys:
             csvOutput += processAttrValue(userInfoGet[key])
-        employeeCSV.write(csvOutput + "\n")
+        employeeCSV.write(csvOutput.rstrip(',') + "\n")
 
         displayName = userInfoGet['displayName']
 
