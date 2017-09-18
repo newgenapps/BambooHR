@@ -25,7 +25,7 @@ userKeys = ['address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'date
     'customNon-DomStatus', 'customPakistanMobilePhone', 'customRwandaMobilePhone', 'customStateofOrigin',
     'customTaxIDNumber', 'customUKWorkPermit']
 userTables = [
-    #, 'compensation', 'customBankDetails', 'customRSADetails'
+    #, 'customBankDetails', 'customRSADetails'
     'jobInfo', 'employmentStatus', 'emergencyContacts', 'compensation'
 ]
 userIDs = []
@@ -82,90 +82,56 @@ def checkHeaderForAttribute(fileName, keyword):
         exit(1)
 
 
-def writeSingleLevelCSV(tableName, keyList):
-    outputFile = args.dest + '/' + epochNow + '_' + tableName + '.csv'
-    headerPresent = checkHeaderForAttribute(outputFile, 'displayName')
-    jobInfoCSV = openFileHandler(outputFile)
-
-    if headerPresent == False:
-        jobInfoCSV.write('displayName,' + str(','.join(map(str, keyList)) + "\n"))
-
-    tableInfoGet = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
-    for elem in tableInfoGet:
-        csvOutput = processAttrValue(employee)
-        for key in keyList:
-            csvOutput += processAttrValue(elem[key])
-        jobInfoCSV.write(csvOutput.rstrip(',') + "\n")
-    jobInfoCSV.close()
-
-
-'''
-def writeTwoLevelCSV(tableName, keyList, subKey, subKeyList):
-    outputFile = args.dest + '/' + epochNow + '_' + tableName + '.csv'
-    headerPresent = checkHeaderForAttribute(outputFile, 'displayName')
-    jobInfoCSV = openFileHandler(outputFile)
-
-    if headerPresent == False:
-        jobInfoCSV.write('displayName,' + str(','.join(map(str, keyList)) + "\n"))
-
-    tableInfoGet = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
-    for elem in tableInfoGet:
-        csvOutput = processAttrValue(employee)
-        for key in keyList:
-            print(type(elem[key]))
-            if key == subKey:
-                for tag in elem[key]:
-                    csvOutput += processAttrValue(elem[key][tag])
-            else:
-                csvOutput += processAttrValue(elem[key])
-        print(csvOutput)
-        #jobInfoCSV.write(csvOutput.rstrip(',') + "\n")
-    #jobInfoCSV.close()
-'''
-
-
-def exec_jobInfo(tableName):
-    jobInfoKeys = ['jobTitle', 'reportsTo', 'location', 'division', 'department', 'date']
-    writeSingleLevelCSV(tableName, jobInfoKeys)
-
-
-def exec_employmentStatus(tableName):
-    statusKeys = ['employmentStatus', 'employeeId', 'date']
-    writeSingleLevelCSV(tableName, statusKeys)
-
-
-def exec_emergencyContacts(tableName):
-    contactKeys = ['employeeId', 'name', 'relationship', 'homePhone', 'addressLine1', 'addressLine2', 'mobilePhone',
-                   'email', 'zipcode', 'city', 'state', 'country', 'workPhone', 'workPhoneExtension']
-    writeSingleLevelCSV(tableName, contactKeys)
-
-
-def exec_compensation(tableName):
-    allKeys = compKeys = ['type', 'payPeriod', 'employeeId', 'startDate']
-    subKey = 'rate'
-    subKeyheaders = ['currency', 'value']
-    allKeys.append(subKey)
-    #writeTwoLevelCSV(tableName, compKeys, subKey, subKeyheaders)
+def writeCSVToFile(tableName, topKeyList, subKeyList):
+    allKeys = topKeyList[:]
+    for parKey in sorted(subKeyList.keys()):
+        allKeys.append(parKey)
 
     fileName = args.dest + '/' + epochNow + '_' + tableName + '.csv'
     headerPresent = checkHeaderForAttribute(fileName, 'displayName')
-
     statusCSV = openFileHandler(fileName)
     if headerPresent == False:
-        statusCSV.write('displayName,' + str(','.join(map(str, compKeys))) + ','
-            + str(','.join(map(str, subKeyheaders))) + "\n")
+        header = 'displayName,' + str(','.join(map(str, topKeyList)))
+        for child in sorted(subKeyList.keys()):
+            header += ',' + (str(','.join(map(str, subKeyList[child]))))
+        statusCSV.write(header + "\n")
 
     compGetInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
     for elem in compGetInfo:
         csvOutput = processAttrValue(employee)
         for key in allKeys:
-            if key == subKey:
-                for tag in subKeyheaders:
+            if key in subKeyList.keys():
+                for tag in subKeyList[key]:
                     csvOutput += processAttrValue(elem[key][tag])
             else:
                 csvOutput += processAttrValue(elem[key])
         statusCSV.write(csvOutput.rstrip(',') + "\n")
     statusCSV.close()
+
+
+def exec_jobInfo(tableName):
+    jobInfoKeys = ['jobTitle', 'reportsTo', 'location', 'division', 'department', 'date']
+    subKeys = {}
+    writeCSVToFile(tableName, jobInfoKeys, subKeys)
+
+
+def exec_employmentStatus(tableName):
+    statusKeys = ['employmentStatus', 'employeeId', 'date']
+    subKeys = {}
+    writeCSVToFile(tableName, statusKeys, subKeys)
+
+
+def exec_emergencyContacts(tableName):
+    contactKeys = ['employeeId', 'name', 'relationship', 'homePhone', 'addressLine1', 'addressLine2', 'mobilePhone',
+                   'email', 'zipcode', 'city', 'state', 'country', 'workPhone', 'workPhoneExtension']
+    subKeys = {}
+    writeCSVToFile(tableName, contactKeys, subKeys)
+
+
+def exec_compensation(tableName):
+    compKeys = ['type', 'payPeriod', 'employeeId', 'startDate']
+    subKeys = {'rate': ['currency', 'value']}
+    writeCSVToFile(tableName, compKeys, subKeys)
 
 
 #-----
