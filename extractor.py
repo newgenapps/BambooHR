@@ -12,23 +12,10 @@ parser.add_argument('dest', help='Full path to CSV and artifacts destination.', 
 args = parser.parse_args()
 
 epochNow = datetime.datetime.today().strftime('%Y%m%d_%s')
-APIPrefix = 'https://api.bamboohr.com/api/gateway.php/ggh/v1/employees'
-userKeys = ['address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'dateOfBirth', 'department', 'division',
-    'employeeNumber', 'employmentHistoryStatus', 'firstName', 'fullName1', 'fullName2', 'fullName3', 'fullName4',
-    'fullName5', 'displayName', 'gender', 'hireDate', 'homeEmail', 'homePhone', 'id', 'jobTitle', 'lastChanged',
-    'lastName', 'location', 'maritalStatus', 'middleName', 'mobilePhone', 'payChangeReason', 'payGroupId', 'payRate',
-    'payRateEffectiveDate', 'payType', 'paidPer', 'payPeriod', 'ssn', 'state', 'stateCode', 'supervisor', 'supervisorId',
-    'supervisorEId', 'terminationDate', 'workEmail', 'workPhone', 'workPhonePlusExtension', 'workPhoneExtension',
-    'zipcode', 'isPhotoUploaded', 'employmentStatus', 'nickname', 'photoUploaded', 'customBenefitDue',
-    'customBenefitDue', 'customCompany', 'customDateofConfirmation', 'customGrade1', 'customLagosGrade', 'customLevel',
-    'customNationalInsuranceNumber', 'customNationality', 'customNHFNumber', 'customNIC', 'customNigeriaMobilePhone',
-    'customNon-DomStatus', 'customPakistanMobilePhone', 'customRwandaMobilePhone', 'customStateofOrigin',
-    'customTaxIDNumber', 'customUKWorkPermit']
-dependentKeys = ['employeeId', 'firstName', 'middleName', 'lastName', 'relationship', 'gender', 'dateOfBirth',
-    'addressLine1', 'addressLine2', 'city', 'state', 'zipCode', 'homePhone', 'country', 'isUsCitizen', 'isStudent']
-userTables = ['jobInfo', 'employmentStatus', 'emergencyContacts', 'compensation', 'customBankDetails',
-    'customRSADetails']
-userIDs = []
+APIPrefix = 'https://api.bamboohr.com/api/gateway.php/ggh/v1'
+#userTables = ['jobInfo', 'employmentStatus', 'emergencyContacts', 'compensation', 'customBankDetails',
+#    'customRSADetails', 'employeedependents']
+userTables = ['employeedependents']
 
 
 def fetchFromAPI(url):
@@ -83,6 +70,7 @@ def checkHeaderForAttribute(fileName, keyword):
 
 
 def processAPIInfo(httpReturn, allKeys, subKeyList):
+    print(httpReturn)
     csvOutput = ''
 
     if isinstance(httpReturn, dict):
@@ -120,57 +108,87 @@ def writeCSVToFile(fetchInfo, tableName, topKeyList, subKeyList):
 
 
 def exec_jobInfo(tableName):
-    fetchInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
     jobInfoKeys = ['jobTitle', 'reportsTo', 'location', 'division', 'department', 'date']
-    writeCSVToFile(fetchInfo, tableName, jobInfoKeys, {})
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    if len(fetchInfo) > 0:
+        writeCSVToFile(fetchInfo, tableName, jobInfoKeys, {})
 
 
 def exec_employmentStatus(tableName):
-    fetchInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
     statusKeys = ['employmentStatus', 'employeeId', 'date']
-    writeCSVToFile(fetchInfo, tableName, statusKeys, {})
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    if len(fetchInfo) > 0:
+        writeCSVToFile(fetchInfo, tableName, statusKeys, {})
 
 
 def exec_emergencyContacts(tableName):
-    fetchInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
     contactKeys = ['employeeId', 'name', 'relationship', 'homePhone', 'addressLine1', 'addressLine2', 'mobilePhone',
         'email', 'zipcode', 'city', 'state', 'country', 'workPhone', 'workPhoneExtension']
-    writeCSVToFile(fetchInfo, tableName, contactKeys, {})
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    if len(fetchInfo) > 0:
+        writeCSVToFile(fetchInfo, tableName, contactKeys, {})
 
 
 def exec_compensation(tableName):
-    fetchInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
     compKeys = ['type', 'payPeriod', 'employeeId', 'startDate']
     subKeys = {'rate': ['currency', 'value']}
-    writeCSVToFile(fetchInfo, tableName, compKeys, subKeys)
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    if len(fetchInfo) > 0:
+        writeCSVToFile(fetchInfo, tableName, compKeys, subKeys)
 
 
 def exec_customBankDetails(tableName):
-    fetchInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
     bankKeys = ['employeeId', 'customBankName', 'customAccountNumber']
-    writeCSVToFile(fetchInfo, tableName, bankKeys, {})
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    if len(fetchInfo) > 0:
+        writeCSVToFile(fetchInfo, tableName, bankKeys, {})
 
 
 def exec_customRSADetails(tableName):
-    fetchInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
     rsaKeys = ['employeeId', 'customPFAName', 'customRSANumber']
-    writeCSVToFile(fetchInfo, tableName, rsaKeys, {})
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    if len(fetchInfo) > 0:
+        writeCSVToFile(fetchInfo, tableName, rsaKeys, {})
 
+
+def exec_employeedependents(tableName):
+    depKeys = ['employeeId', 'firstName', 'middleName', 'lastName', 'relationship', 'gender', 'dateOfBirth',
+        'addressLine1', 'addressLine2', 'city', 'state', 'zipCode', 'homePhone', 'country', 'isUsCitizen',
+        'isStudent']
+    fetchInfo = fetchFromAPI(APIPrefix + '/' + tableName + '/?employeeid=' + str(id))
+    print(fetchInfo['Employee Dependents'])
+    print(len(fetchInfo['Employee Dependents']))
+    print(type(fetchInfo['Employee Dependents']))
+    if len(fetchInfo['Employee Dependents']) > 0:
+        writeCSVToFile(fetchInfo['Employee Dependents'], tableName, depKeys, {})
 
 #-----
 ids = [46, 40, 51, 671]
 #-----
 
+# Key sets
+userKeys = ['address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'dateOfBirth', 'department', 'division',
+    'employeeNumber', 'employmentHistoryStatus', 'firstName', 'fullName1', 'fullName2', 'fullName3', 'fullName4',
+    'fullName5', 'displayName', 'gender', 'hireDate', 'homeEmail', 'homePhone', 'id', 'jobTitle', 'lastChanged',
+    'lastName', 'location', 'maritalStatus', 'middleName', 'mobilePhone', 'payChangeReason', 'payGroupId', 'payRate',
+    'payRateEffectiveDate', 'payType', 'paidPer', 'payPeriod', 'ssn', 'state', 'stateCode', 'supervisor', 'supervisorId',
+    'supervisorEId', 'terminationDate', 'workEmail', 'workPhone', 'workPhonePlusExtension', 'workPhoneExtension',
+    'zipcode', 'isPhotoUploaded', 'employmentStatus', 'nickname', 'photoUploaded', 'customBenefitDue',
+    'customBenefitDue', 'customCompany', 'customDateofConfirmation', 'customGrade1', 'customLagosGrade', 'customLevel',
+    'customNationalInsuranceNumber', 'customNationality', 'customNHFNumber', 'customNIC', 'customNigeriaMobilePhone',
+    'customNon-DomStatus', 'customPakistanMobilePhone', 'customRwandaMobilePhone', 'customStateofOrigin',
+    'customTaxIDNumber', 'customUKWorkPermit']
 
 # Fetch the list of user IDs
-userIDGet = fetchFromAPI(APIPrefix + '/directory')
+userIDs = []
+userIDGet = fetchFromAPI(APIPrefix + '/employees/directory')
 for employee in userIDGet['employees']:
     userIDs.append(employee['id'])
 
 for id in ids:
     # Do not run for ID 671 - Viv Diwakar
     if id != 671:
-        userInfoGet = fetchFromAPI(APIPrefix + '/' + str(id) + '?fields=' + ','.join(map(str, userKeys)))
+        userInfoGet = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '?fields=' + ','.join(map(str, userKeys)))
         employee = userInfoGet['displayName']
         writeCSVToFile(userInfoGet, 'employees', userKeys, {})
 
