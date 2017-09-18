@@ -25,8 +25,8 @@ userKeys = ['address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'date
     'customNon-DomStatus', 'customPakistanMobilePhone', 'customRwandaMobilePhone', 'customStateofOrigin',
     'customTaxIDNumber', 'customUKWorkPermit']
 userTables = [
-    #, 'customBankDetails', 'customRSADetails'
-    'jobInfo', 'employmentStatus', 'emergencyContacts', 'compensation'
+    #'customRSADetails'
+    'jobInfo', 'employmentStatus', 'emergencyContacts', 'compensation', 'customBankDetails'
 ]
 userIDs = []
 
@@ -40,15 +40,6 @@ def fetchFromAPI(url):
             sys.stderr.write('Could not fetch userIDs; exiting...' + "\n")
             exit(1)
     except (ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout) as e:
-        sys.stderr.write('ERROR: ' + str(e) + '; exiting...' + "\n")
-        exit(1)
-
-
-def openFileHandler(fileName):
-    try:
-        fh = open(fileName, 'a')
-        return fh
-    except (PermissionError, OSError, IOError) as e:
         sys.stderr.write('ERROR: ' + str(e) + '; exiting...' + "\n")
         exit(1)
 
@@ -82,6 +73,24 @@ def checkHeaderForAttribute(fileName, keyword):
         exit(1)
 
 
+def processAPIInfo(httpReturn, allKeys, subKeyList):
+    csvOutput = ''
+
+    if isinstance(httpReturn, dict):
+        csvOutput = processAttrValue(employee)
+        for key in allKeys:
+            if key in subKeyList.keys():
+                for tag in subKeyList[key]:
+                    csvOutput += processAttrValue(httpReturn[key][tag])
+            else:
+                csvOutput += processAttrValue(httpReturn[key])
+    else:
+        for inst in httpReturn:
+            csvOutput = processAPIInfo(inst, allKeys, subKeyList)
+
+    return csvOutput
+
+
 def writeCSVToFile(tableName, topKeyList, subKeyList):
     allKeys = topKeyList[:]
     for parKey in sorted(subKeyList.keys()):
@@ -89,24 +98,23 @@ def writeCSVToFile(tableName, topKeyList, subKeyList):
 
     fileName = args.dest + '/' + epochNow + '_' + tableName + '.csv'
     headerPresent = checkHeaderForAttribute(fileName, 'displayName')
-    statusCSV = openFileHandler(fileName)
-    if headerPresent == False:
-        header = 'displayName,' + str(','.join(map(str, topKeyList)))
-        for child in sorted(subKeyList.keys()):
-            header += ',' + (str(','.join(map(str, subKeyList[child]))))
-        statusCSV.write(header + "\n")
 
-    compGetInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
-    for elem in compGetInfo:
-        csvOutput = processAttrValue(employee)
-        for key in allKeys:
-            if key in subKeyList.keys():
-                for tag in subKeyList[key]:
-                    csvOutput += processAttrValue(elem[key][tag])
-            else:
-                csvOutput += processAttrValue(elem[key])
-        statusCSV.write(csvOutput.rstrip(',') + "\n")
-    statusCSV.close()
+    try:
+        statusCSV = open(fileName, 'a')
+
+        if headerPresent == False:
+            header = 'displayName,' + str(','.join(map(str, topKeyList)))
+            for child in sorted(subKeyList.keys()):
+                header += ',' + (str(','.join(map(str, subKeyList[child]))))
+            statusCSV.write(header + "\n")
+
+        compGetInfo = fetchFromAPI(APIPrefix + '/' + str(id) + '/tables/' + tableName)
+        for elem in compGetInfo:
+            statusCSV.write(processAPIInfo(elem, allKeys, subKeyList).rstrip(',') + "\n")
+        statusCSV.close()
+    except (PermissionError, OSError, IOError) as e:
+        sys.stderr.write('ERROR: ' + str(e) + '; exiting...' + "\n")
+        exit(1)
 
 
 def exec_jobInfo(tableName):
@@ -134,6 +142,11 @@ def exec_compensation(tableName):
     writeCSVToFile(tableName, compKeys, subKeys)
 
 
+def exec_customBankDetails(tableName):
+    bankKeys = ['employeeId', 'customBankName', 'customAccountNumber']
+    subKeys = {}
+    writeCSVToFile(tableName, bankKeys, subKeys)
+
 #-----
 ids = [40, 46, 51, 671]
 #-----
@@ -144,18 +157,22 @@ userIDGet = fetchFromAPI(APIPrefix + '/directory')
 for employee in userIDGet['employees']:
     userIDs.append(employee['id'])
 
-employeeCSV = openFileHandler(args.dest + '/' + epochNow + '_employees.csv')
-employeeCSV.write(','.join(map(str, userKeys)) + "\n")
-for id in ids:
-    # Do not run for ID 671 - Viv Diwakar
-    if id != 671:
-        csvOutput = ''
-        userInfoGet = fetchFromAPI(APIPrefix + '/' + str(id) + '?fields=' + ','.join(map(str, userKeys)))
-        for key in userKeys:
-            csvOutput += processAttrValue(userInfoGet[key])
-        employeeCSV.write(csvOutput.rstrip(',') + "\n")
+try:
+    employeeCSV = open(args.dest + '/' + epochNow + '_employees.csv', 'a')
+    employeeCSV.write(','.join(map(str, userKeys)) + "\n")
+    for id in ids:
+        # Do not run for ID 671 - Viv Diwakar
+        if id != 671:
+            csvOutput = ''
+            userInfoGet = fetchFromAPI(APIPrefix + '/' + str(id) + '?fields=' + ','.join(map(str, userKeys)))
+            for key in userKeys:
+                csvOutput += processAttrValue(userInfoGet[key])
+            employeeCSV.write(csvOutput.rstrip(',') + "\n")
 
-        employee = userInfoGet['displayName']
-        for table in userTables:
-            locals()[str('exec_' + table)](table)
-employeeCSV.close()
+            employee = userInfoGet['displayName']
+            for table in userTables:
+                locals()[str('exec_' + table)](table)
+    employeeCSV.close()
+except (PermissionError, OSError, IOError) as e:
+    sys.stderr.write('ERROR: ' + str(e) + '; exiting...' + "\n")
+    exit(1)
