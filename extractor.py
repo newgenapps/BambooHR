@@ -24,10 +24,8 @@ userKeys = ['address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'date
     'customNationalInsuranceNumber', 'customNationality', 'customNHFNumber', 'customNIC', 'customNigeriaMobilePhone',
     'customNon-DomStatus', 'customPakistanMobilePhone', 'customRwandaMobilePhone', 'customStateofOrigin',
     'customTaxIDNumber', 'customUKWorkPermit']
-userTables = [
-    #'customRSADetails'
-    'jobInfo', 'employmentStatus', 'emergencyContacts', 'compensation', 'customBankDetails'
-]
+userTables = ['jobInfo', 'employmentStatus', 'emergencyContacts', 'compensation', 'customBankDetails',
+    'customRSADetails']
 userIDs = []
 
 
@@ -146,6 +144,12 @@ def exec_customBankDetails(tableName):
     bankKeys = ['employeeId', 'customBankName', 'customAccountNumber']
     subKeys = {}
     writeCSVToFile(tableName, bankKeys, subKeys)
+
+
+def exec_customRSADetails(tableName):
+    rsaKeys = ['employeeId', 'customPFAName', 'customRSANumber']
+    subKeys = {}
+    writeCSVToFile(tableName, rsaKeys, subKeys)
 
 #-----
 ids = [40, 46, 51, 671]
