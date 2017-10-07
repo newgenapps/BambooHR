@@ -23,9 +23,21 @@ def fetchFromAPI(url):
         if results.status_code == 200:
             return results.json()
         else:
-            sys.stderr.write('Could not fetch userIDs; exiting...' + "\n")
+            sys.stderr.write('API Request error; exiting...' + "\n")
             exit(1)
-    except (ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout) as e:
+    except (requests.ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout) as e:
+        sys.stderr.write('ERROR: ' + str(e) + '; exiting...' + "\n")
+        exit(1)
+
+
+def fetchUserImage(url, destination):
+    try:
+        image = requests.get(url, headers={'Accept': 'application/json'}, auth=(args.auth, ":x"))
+        with open(destination, 'wb') as f:
+            f.write(image.content)
+        f.close()
+
+    except (requests.ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout) as e:
         sys.stderr.write('ERROR: ' + str(e) + '; exiting...' + "\n")
         exit(1)
 
@@ -161,21 +173,21 @@ def exec_employeedependents(tableName):
 
 
 #-----
-ids = [46, 40, 51, 671]
+ids = [46, 40, 51, 671, 787]
 #-----
 
 # Key sets
-userKeys = ['address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'dateOfBirth', 'department', 'division',
+userKeys = ['id', 'address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'dateOfBirth',
     'employeeNumber', 'employmentHistoryStatus', 'firstName', 'fullName1', 'fullName2', 'fullName3', 'fullName4',
-    'fullName5', 'displayName', 'gender', 'hireDate', 'homeEmail', 'homePhone', 'id', 'jobTitle', 'lastChanged',
+    'fullName5', 'gender', 'hireDate', 'homeEmail', 'homePhone', 'jobTitle', 'lastChanged', 'department',
     'lastName', 'location', 'maritalStatus', 'middleName', 'mobilePhone', 'payChangeReason', 'payGroupId', 'payRate',
-    'payRateEffectiveDate', 'payType', 'paidPer', 'payPeriod', 'ssn', 'state', 'stateCode', 'supervisor', 'supervisorId',
+    'payRateEffectiveDate', 'payType', 'paidPer', 'payPeriod', 'ssn', 'state', 'stateCode', 'supervisor',
     'supervisorEId', 'terminationDate', 'workEmail', 'workPhone', 'workPhonePlusExtension', 'workPhoneExtension',
-    'zipcode', 'isPhotoUploaded', 'employmentStatus', 'nickname', 'photoUploaded', 'customBenefitDue',
+    'zipcode', 'isPhotoUploaded', 'employmentStatus', 'nickname', 'photoUploaded', 'customBenefitDue', 'division',
     'customBenefitDue', 'customCompany', 'customDateofConfirmation', 'customGrade1', 'customLagosGrade', 'customLevel',
     'customNationalInsuranceNumber', 'customNationality', 'customNHFNumber', 'customNIC', 'customNigeriaMobilePhone',
     'customNon-DomStatus', 'customPakistanMobilePhone', 'customRwandaMobilePhone', 'customStateofOrigin',
-    'customTaxIDNumber', 'customUKWorkPermit']
+    'customTaxIDNumber', 'customUKWorkPermit', 'supervisorId', 'displayName']
 
 # Fetch the list of user IDs
 userIDs = []
@@ -188,7 +200,12 @@ for id in ids:
     if id != 671:
         userInfoGet = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '?fields=' + ','.join(map(str, userKeys)))
         employee = userInfoGet['displayName']
-        writeCSVToFile(userInfoGet, 'employees', userKeys, {})
+        writeCSVToFile(userInfoGet, 'employees', userKeys[:-1], {})
+
+        userPicUploaded = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '?fields=isPhotoUploaded')
+        if userPicUploaded['isPhotoUploaded'] == 'true':
+            fetchUserImage(APIPrefix + '/employees/' + str(id) + '/photo/small',
+                sub(',', '', str(args.dest + '/photo_employeeID_' + str(id) + '_' + sub(' ', '_', employee) + '.jpg')))
 
         for table in userTables:
             locals()[str('exec_' + table)](table)
