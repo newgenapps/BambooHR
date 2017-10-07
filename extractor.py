@@ -13,9 +13,8 @@ args = parser.parse_args()
 
 epochNow = datetime.datetime.today().strftime('%Y%m%d_%s')
 APIPrefix = 'https://api.bamboohr.com/api/gateway.php/ggh/v1'
-#userTables = ['jobInfo', 'employmentStatus', 'emergencyContacts', 'compensation', 'customBankDetails',
-#    'customRSADetails', 'employeedependents']
-userTables = ['employeedependents']
+userTables = ['jobInfo', 'employmentStatus', 'emergencyContacts', 'compensation', 'customBankDetails',
+    'customRSADetails', 'employeedependents']
 
 
 def fetchFromAPI(url):
@@ -70,7 +69,6 @@ def checkHeaderForAttribute(fileName, keyword):
 
 
 def processAPIInfo(httpReturn, allKeys, subKeyList):
-    print(httpReturn)
     csvOutput = ''
 
     if isinstance(httpReturn, dict):
@@ -82,8 +80,10 @@ def processAPIInfo(httpReturn, allKeys, subKeyList):
             else:
                 csvOutput += processAttrValue(httpReturn[key])
     else:
-        for inst in httpReturn:
-            csvOutput = processAPIInfo(inst, allKeys, subKeyList)
+        index = -1
+        for index in range(len(httpReturn) - 1):
+            csvOutput += processAPIInfo(httpReturn[index], allKeys, subKeyList) + '\n'
+        csvOutput += processAPIInfo(httpReturn[(index + 1)], allKeys, subKeyList)
 
     return csvOutput
 
@@ -156,11 +156,9 @@ def exec_employeedependents(tableName):
         'addressLine1', 'addressLine2', 'city', 'state', 'zipCode', 'homePhone', 'country', 'isUsCitizen',
         'isStudent']
     fetchInfo = fetchFromAPI(APIPrefix + '/' + tableName + '/?employeeid=' + str(id))
-    print(fetchInfo['Employee Dependents'])
-    print(len(fetchInfo['Employee Dependents']))
-    print(type(fetchInfo['Employee Dependents']))
     if len(fetchInfo['Employee Dependents']) > 0:
         writeCSVToFile(fetchInfo['Employee Dependents'], tableName, depKeys, {})
+
 
 #-----
 ids = [46, 40, 51, 671]
