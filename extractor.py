@@ -30,7 +30,7 @@ def fetchFromAPI(url):
         exit(1)
 
 
-def fetchUserImage(url, destination):
+def fetchBinaryFile(url, destination):
     try:
         image = requests.get(url, headers={'Accept': 'application/json'}, auth=(args.auth, ":x"))
         with open(destination, 'wb') as f:
@@ -204,7 +204,7 @@ for id in ids:
 
         userPicUploaded = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '?fields=isPhotoUploaded')
         if userPicUploaded['isPhotoUploaded'] == 'true':
-            fetchUserImage(APIPrefix + '/employees/' + str(id) + '/photo/small',
+            fetchBinaryFile(APIPrefix + '/employees/' + str(id) + '/photo/small',
                 sub(',', '', str(args.dest + '/photo_employeeID_' + str(id) + '_' + sub(' ', '_', employee) + '.jpg')))
 
         for table in userTables:
