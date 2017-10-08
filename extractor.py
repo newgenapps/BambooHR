@@ -2,28 +2,35 @@ import argparse
 import datetime
 import sys
 import requests
-from re import search, sub
+from os import makedirs
+from os.path import dirname, exists
+from re import search, sub, escape
+import xmltodict
 
 
 # Setup the CLI arguments parser
 parser = argparse.ArgumentParser()
 parser.add_argument('auth', help='User API auth key.', type=str)
+parser.add_argument('company', help='Company name within BambooHR.', type=str)
 parser.add_argument('dest', help='Full path to CSV and artifacts destination.', type=str)
 args = parser.parse_args()
 
 epochNow = datetime.datetime.today().strftime('%Y%m%d_%s')
-APIPrefix = 'https://api.bamboohr.com/api/gateway.php/ggh/v1'
+APIPrefix = 'https://api.bamboohr.com/api/gateway.php/' + args.company + '/v1'
 userTables = ['jobInfo', 'employmentStatus', 'emergencyContacts', 'compensation', 'customBankDetails',
     'customRSADetails', 'employeedependents']
 
 
-def fetchFromAPI(url):
+def fetchFromAPI(url, outform):
     try:
         results = requests.get(url, headers={'Accept': 'application/json'}, auth=(args.auth, ":x"))
         if results.status_code == 200:
-            return results.json()
+            if outform == 'json':
+                return results.json()
+            elif outform == 'xml':
+                return results.text
         else:
-            sys.stderr.write('API Request error; exiting...' + "\n")
+            sys.stderr.write('API Request error on "' + url + '"; exiting...' + "\n")
             exit(1)
     except (requests.ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout) as e:
         sys.stderr.write('ERROR: ' + str(e) + '; exiting...' + "\n")
@@ -33,6 +40,11 @@ def fetchFromAPI(url):
 def fetchBinaryFile(url, destination):
     try:
         image = requests.get(url, headers={'Accept': 'application/json'}, auth=(args.auth, ":x"))
+
+        directory = dirname(destination)
+        if not exists(directory):
+            makedirs(directory)
+
         with open(destination, 'wb') as f:
             f.write(image.content)
         f.close()
@@ -121,14 +133,14 @@ def writeCSVToFile(fetchInfo, tableName, topKeyList, subKeyList):
 
 def exec_jobInfo(tableName):
     jobInfoKeys = ['jobTitle', 'reportsTo', 'location', 'division', 'department', 'date']
-    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(employeeID) + '/tables/' + tableName, 'json')
     if len(fetchInfo) > 0:
         writeCSVToFile(fetchInfo, tableName, jobInfoKeys, {})
 
 
 def exec_employmentStatus(tableName):
     statusKeys = ['employmentStatus', 'employeeId', 'date']
-    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(employeeID) + '/tables/' + tableName, 'json')
     if len(fetchInfo) > 0:
         writeCSVToFile(fetchInfo, tableName, statusKeys, {})
 
@@ -136,7 +148,7 @@ def exec_employmentStatus(tableName):
 def exec_emergencyContacts(tableName):
     contactKeys = ['employeeId', 'name', 'relationship', 'homePhone', 'addressLine1', 'addressLine2', 'mobilePhone',
         'email', 'zipcode', 'city', 'state', 'country', 'workPhone', 'workPhoneExtension']
-    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(employeeID) + '/tables/' + tableName, 'json')
     if len(fetchInfo) > 0:
         writeCSVToFile(fetchInfo, tableName, contactKeys, {})
 
@@ -144,21 +156,21 @@ def exec_emergencyContacts(tableName):
 def exec_compensation(tableName):
     compKeys = ['type', 'payPeriod', 'employeeId', 'startDate']
     subKeys = {'rate': ['currency', 'value']}
-    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(employeeID) + '/tables/' + tableName, 'json')
     if len(fetchInfo) > 0:
         writeCSVToFile(fetchInfo, tableName, compKeys, subKeys)
 
 
 def exec_customBankDetails(tableName):
     bankKeys = ['employeeId', 'customBankName', 'customAccountNumber']
-    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(employeeID) + '/tables/' + tableName, 'json')
     if len(fetchInfo) > 0:
         writeCSVToFile(fetchInfo, tableName, bankKeys, {})
 
 
 def exec_customRSADetails(tableName):
     rsaKeys = ['employeeId', 'customPFAName', 'customRSANumber']
-    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '/tables/' + tableName)
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(employeeID) + '/tables/' + tableName, 'json')
     if len(fetchInfo) > 0:
         writeCSVToFile(fetchInfo, tableName, rsaKeys, {})
 
@@ -167,9 +179,26 @@ def exec_employeedependents(tableName):
     depKeys = ['employeeId', 'firstName', 'middleName', 'lastName', 'relationship', 'gender', 'dateOfBirth',
         'addressLine1', 'addressLine2', 'city', 'state', 'zipCode', 'homePhone', 'country', 'isUsCitizen',
         'isStudent']
-    fetchInfo = fetchFromAPI(APIPrefix + '/' + tableName + '/?employeeid=' + str(id))
+    fetchInfo = fetchFromAPI(APIPrefix + '/' + tableName + '/?employeeid=' + str(employeeID), 'json')
     if len(fetchInfo['Employee Dependents']) > 0:
         writeCSVToFile(fetchInfo['Employee Dependents'], tableName, depKeys, {})
+
+
+def downloadDocuments(employeeID):
+    spaces = [' ']
+
+    fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(employeeID) + '/files/view', 'xml')
+    obj = xmltodict.parse(fetchInfo)
+    for i in range(len(obj['employee']['category'])):
+        catName = obj['employee']['category'][i]['name']
+        try:
+            for file in obj['employee']['category'][i]['file']:
+                rawfilename = str(args.dest + catName + '/' + file['dateCreated'] + '_' + file['name'])
+                filename = sub(u'(?u)[' + escape(''.join(spaces)) + ']', '_', rawfilename)
+                fetchBinaryFile(APIPrefix + '/employees/' + str(employeeID) + '/files/' + file['@id'] + '/', filename)
+                print(filename)
+        except KeyError:
+            pass
 
 
 #-----
@@ -191,21 +220,28 @@ userKeys = ['id', 'address1', 'address2', 'age', 'bestEmail', 'city', 'country',
 
 # Fetch the list of user IDs
 userIDs = []
-userIDGet = fetchFromAPI(APIPrefix + '/employees/directory')
+userIDGet = fetchFromAPI(APIPrefix + '/employees/directory', 'json')
 for employee in userIDGet['employees']:
     userIDs.append(employee['id'])
 
-for id in ids:
+# for employeeID in userIDs:
+for employeeID in ids:
     # Do not run for ID 671 - Viv Diwakar
-    if id != 671:
-        userInfoGet = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '?fields=' + ','.join(map(str, userKeys)))
+    if employeeID != 671:
+        userInfoGet = fetchFromAPI(APIPrefix + '/employees/' + str(employeeID) + '?fields='
+            + ','.join(map(str, userKeys)), 'json')
         employee = userInfoGet['displayName']
         writeCSVToFile(userInfoGet, 'employees', userKeys[:-1], {})
 
-        userPicUploaded = fetchFromAPI(APIPrefix + '/employees/' + str(id) + '?fields=isPhotoUploaded')
+        downloadDocuments(employeeID)
+
+        userPicUploaded = fetchFromAPI(APIPrefix + '/employees/' + str(employeeID) + '?fields=isPhotoUploaded', 'json')
         if userPicUploaded['isPhotoUploaded'] == 'true':
-            fetchBinaryFile(APIPrefix + '/employees/' + str(id) + '/photo/small',
-                sub(',', '', str(args.dest + '/photo_employeeID_' + str(id) + '_' + sub(' ', '_', employee) + '.jpg')))
+            fetchBinaryFile(APIPrefix + '/employees/' + str(employeeID) + '/photo/small',
+                sub(',', '', str(args.dest + '/photos/photo_employeeID_' + str(employeeID) + '_'
+                    + sub(' ', '_', employee) + '.jpg')))
 
         for table in userTables:
             locals()[str('exec_' + table)](table)
+
+
