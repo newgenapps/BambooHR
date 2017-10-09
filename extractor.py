@@ -211,10 +211,6 @@ def downloadDocuments(employeeID):
             pass
 
 
-#-----
-ids = [46, 40, 51, 671, 787]
-#-----
-
 # Key sets
 userKeys = ['id', 'address1', 'address2', 'age', 'bestEmail', 'city', 'country', 'dateOfBirth',
     'employeeNumber', 'employmentHistoryStatus', 'firstName', 'fullName1', 'fullName2', 'fullName3', 'fullName4',
@@ -235,7 +231,7 @@ for employee in userIDGet['employees']:
     userIDs.append(employee['id'])
 
 # for employeeID in userIDs:
-for employeeID in ids:
+for employeeID in userIDs:
     # Do not run for ID 671 - Viv Diwakar
     if employeeID != 671:
         userInfoGet = fetchFromAPI(APIPrefix + '/employees/' + str(employeeID) + '?fields='
