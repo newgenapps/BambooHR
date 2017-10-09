@@ -39,16 +39,15 @@ def fetchFromAPI(url, outform):
 
 def fetchBinaryFile(url, destination):
     try:
-        image = requests.get(url, headers={'Accept': 'application/json'}, auth=(args.auth, ":x"))
+        binary = requests.get(url, headers={'Accept': 'application/json'}, auth=(args.auth, ":x"))
 
         directory = dirname(destination)
         if not exists(directory):
             makedirs(directory)
 
         with open(destination, 'wb') as f:
-            f.write(image.content)
+            f.write(binary.content)
         f.close()
-
     except (requests.ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout) as e:
         sys.stderr.write('ERROR: ' + str(e) + '; exiting...' + "\n")
         exit(1)
@@ -184,19 +183,30 @@ def exec_employeedependents(tableName):
         writeCSVToFile(fetchInfo['Employee Dependents'], tableName, depKeys, {})
 
 
-def downloadDocuments(employeeID):
+def processDict(arg, catName):
     spaces = [' ']
 
+    return sub(u'(?u)[' + escape(''.join(spaces)) + ']', '_',
+        str(args.dest + catName + '/' + arg['dateCreated'] + '_' + arg['name']))
+
+
+def downloadDocuments(employeeID):
     fetchInfo = fetchFromAPI(APIPrefix + '/employees/' + str(employeeID) + '/files/view', 'xml')
     obj = xmltodict.parse(fetchInfo)
     for i in range(len(obj['employee']['category'])):
         catName = obj['employee']['category'][i]['name']
         try:
-            for file in obj['employee']['category'][i]['file']:
-                rawfilename = str(args.dest + catName + '/' + file['dateCreated'] + '_' + file['name'])
-                filename = sub(u'(?u)[' + escape(''.join(spaces)) + ']', '_', rawfilename)
-                fetchBinaryFile(APIPrefix + '/employees/' + str(employeeID) + '/files/' + file['@id'] + '/', filename)
-                print(filename)
+            if isinstance(obj['employee']['category'][i]['file'], list):
+                for ind in range(len(obj['employee']['category'][i]['file'])):
+                    filename = processDict(obj['employee']['category'][i]['file'][ind], catName)
+                    fetchBinaryFile(APIPrefix + '/employees/' + str(employeeID) + '/files/' +
+                        str(obj['employee']['category'][i]['file'][ind]['@id']) + '/', filename)
+            elif isinstance(obj['employee']['category'][i]['file'], dict):
+                filename = processDict(obj['employee']['category'][i]['file'], catName)
+                fetchBinaryFile(APIPrefix + '/employees/' + str(employeeID) + '/files/' +
+                    str(obj['employee']['category'][i]['file']['@id']) + '/', filename)
+            else:
+                    print(type(obj['employee']['category'][i]['file']))
         except KeyError:
             pass
 
@@ -243,5 +253,3 @@ for employeeID in ids:
 
         for table in userTables:
             locals()[str('exec_' + table)](table)
-
-
